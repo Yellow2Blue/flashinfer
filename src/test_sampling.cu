@@ -59,9 +59,15 @@ void _TestTopKSamplingFromProb(size_t batch_size, uint32_t k, size_t vocab_size)
 
     auto status = sampling::TopKSamplingFromProb<T, IdType>(
         thrust::raw_pointer_cast(probs_d.data()),
-        thrust::raw_pointer_cast(uniform_samples_d.data()),
-        thrust::raw_pointer_cast(sampled_ids_d.data()), thrust::raw_pointer_cast(success_d.data()),
-        /*top_k_arr=*/nullptr, batch_size, k, vocab_size, max_top_p_rounds, /*deterministic=*/true);
+        thrust::raw_pointer_cast(sampled_ids_d.data()),
+        nullptr, // indices parameter
+        nullptr, // top_k_arr parameter
+        batch_size,
+        k,
+        vocab_size,
+        /*deterministic=*/true,
+        42ULL, // philox_seed
+        0ULL); // philox_offset
 
     EXPECT_EQ(status, cudaSuccess) << "TopKSamplingFromProb kernel launch failed, error message: "
                                    << cudaGetErrorString(status);
@@ -124,9 +130,15 @@ void _TestTopPSamplingFromProb(size_t batch_size, uint32_t k, size_t vocab_size)
 
     auto status = sampling::TopPSamplingFromProb<T, IdType>(
         thrust::raw_pointer_cast(probs_d.data()),
-        thrust::raw_pointer_cast(uniform_samples_d.data()),
-        thrust::raw_pointer_cast(sampled_ids_d.data()), thrust::raw_pointer_cast(success_d.data()),
-        /*top_p_arr=*/nullptr, batch_size, p, vocab_size, max_top_p_rounds, /*deterministic=*/true);
+        thrust::raw_pointer_cast(sampled_ids_d.data()),
+        nullptr, // indices parameter
+        nullptr, // top_p_arr parameter
+        batch_size,
+        p,
+        vocab_size,
+        /*deterministic=*/true,
+        42ULL, // philox_seed
+        0ULL); // philox_offset
 
     EXPECT_EQ(status, cudaSuccess) << "TopPSamplingFromProb kernel launch failed, error message: "
                                    << cudaGetErrorString(status);
@@ -172,10 +184,14 @@ void _TestSamplingFromProbOneHot(size_t batch_size, size_t vocab_size) {
   thrust::device_vector<T> uniform_samples_d(uniform_samples_h);
   thrust::device_vector<IdType> sampled_ids_d(batch_size);
 
-  auto status = sampling::SamplingFromProb<T>(thrust::raw_pointer_cast(probs_d.data()),
-                                              thrust::raw_pointer_cast(uniform_samples_d.data()),
+  auto status = sampling::SamplingFromProb<T, IdType>(thrust::raw_pointer_cast(probs_d.data()),
                                               thrust::raw_pointer_cast(sampled_ids_d.data()),
-                                              batch_size, vocab_size, /*deterministic=*/true);
+                                              nullptr, // indices parameter
+                                              batch_size,
+                                              vocab_size,
+                                              /*deterministic=*/true,
+                                              42ULL, // philox_seed
+                                              0ULL); // philox_offset
   EXPECT_EQ(status, cudaSuccess) << "SamplingFromProb kernel launch failed, error message: "
                                  << cudaGetErrorString(status);
 
@@ -1878,10 +1894,14 @@ void TestSamplingFromProbExtremeCase() {
   thrust::device_vector<IdType> sampled_ids_d(batch_size);
   thrust::device_vector<T> uniform_samples_d(uniform_samples_h);
 
-  auto status = sampling::SamplingFromProb<T>(thrust::raw_pointer_cast(probs_d.data()),
-                                              thrust::raw_pointer_cast(uniform_samples_d.data()),
+    auto status = sampling::SamplingFromProb<T, IdType>(thrust::raw_pointer_cast(probs_d.data()),
                                               thrust::raw_pointer_cast(sampled_ids_d.data()),
-                                              batch_size, vocab_size, /*deterministic=*/true);
+                                              nullptr, // indices parameter
+                                              batch_size,
+                                              vocab_size,
+                                              /*deterministic=*/true,
+                                              42ULL, // philox_seed
+                                              0ULL); // philox_offset
   EXPECT_EQ(status, cudaSuccess) << "SamplingFromProb kernel launch failed, error message: "
                                  << cudaGetErrorString(status);
 

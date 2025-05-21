@@ -39,7 +39,7 @@ void _TestRMSNormCorrectness(uint32_t batch_size, uint32_t d) {
 
   cudaError_t status = norm::RMSNorm<T>(
       thrust::raw_pointer_cast(x_device.data()), thrust::raw_pointer_cast(w_device.data()),
-      thrust::raw_pointer_cast(y_device.data()), batch_size, d, 1e-6);
+      thrust::raw_pointer_cast(y_device.data()), batch_size, d, d, d, 1e-5);
   EXPECT_EQ(status, cudaSuccess) << "RMSNorm kernel launch failed, error message: "
                                  << cudaGetErrorString(status);
 
