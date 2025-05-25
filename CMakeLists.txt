@@ -79,6 +79,7 @@ if(FLASHINFER_PREFILL
    OR FLASHINFER_SAMPLING
    OR FLASHINFER_NORM)
   message(STATUS "NVBench and GoogleTest enabled")
+  find_package(CUDAToolkit REQUIRED)
   add_subdirectory(3rdparty/nvbench)
   add_subdirectory(3rdparty/googletest)
 endif(
@@ -229,6 +230,10 @@ if(FLASHINFER_GEN_USE_FP16_QK_REDUCTIONS)
   add_definitions(-DFP16_QK_REDUCTION_SUPPORTED)
   target_link_libraries(prefill_kernels PRIVATE Boost::math)
 endif(FLASHINFER_GEN_USE_FP16_QK_REDUCTIONS)
+
+list(APPEND CMAKE_PREFIX_PATH "/home/blue/.local/lib/python3.10/site-packages/torch")
+message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
+find_package(Torch REQUIRED)
 
 if(FLASHINFER_DECODE)
   message(STATUS "Compile single decode kernel benchmarks.")
@@ -395,18 +400,22 @@ if(FLASHINFER_SAMPLING)
   target_include_directories(bench_sampling PRIVATE ${FLASHINFER_INCLUDE_DIR})
   target_include_directories(bench_sampling
                              PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/nvbench)
-  target_link_libraries(bench_sampling PRIVATE nvbench::main)
+  # Remove nvbench dependency
+  target_link_libraries(bench_sampling PRIVATE 
+    nvbench::main
+    -lstdc++fs
+  )
   target_compile_options(bench_sampling PRIVATE -Wno-switch-bool)
 
-  message(STATUS "Compile sampling kernel tests.")
-  file(GLOB_RECURSE TEST_SAMPLING_SRCS
-       ${PROJECT_SOURCE_DIR}/src/test_sampling.cu)
-  add_executable(test_sampling ${TEST_SAMPLING_SRCS})
-  target_include_directories(test_sampling PRIVATE ${FLASHINFER_INCLUDE_DIR})
-  target_include_directories(test_sampling PRIVATE ${gtest_SOURCE_DIR}/include
-                                                   ${gtest_SOURCE_DIR})
-  target_link_libraries(test_sampling PRIVATE gtest gtest_main)
-  target_compile_options(test_sampling PRIVATE -Wno-switch-bool)
+    message(STATUS "Compile sampling kernel tests.")
+    file(GLOB_RECURSE TEST_SAMPLING_SRCS
+         ${PROJECT_SOURCE_DIR}/src/test_sampling.cu)
+    add_executable(test_sampling ${TEST_SAMPLING_SRCS})
+    target_include_directories(test_sampling PRIVATE ${FLASHINFER_INCLUDE_DIR})
+    target_include_directories(test_sampling PRIVATE ${gtest_SOURCE_DIR}/include
+                                                     ${gtest_SOURCE_DIR})
+    target_link_libraries(test_sampling PRIVATE gtest gtest_main)
+    target_compile_options(test_sampling PRIVATE -Wno-switch-bool)
 endif(FLASHINFER_SAMPLING)
 
 if(FLASHINFER_NORM)

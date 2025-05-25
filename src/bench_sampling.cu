@@ -27,10 +27,9 @@ void bench_sampling_with_probability(nvbench::state& state) {
   size_t batch_size = state.get_int64("batch_size");
   size_t vocab_size = state.get_int64("vocab_size");
   bool deterministic = state.get_int64("determinisic");
-
   std::vector<T> probs_h(batch_size * vocab_size);
-  std::vector<T> uniform_samples_h(batch_size);
-  utils::vec_uniform_<T>(uniform_samples_h, 0, 1);
+  std::vector<int32_t> uniform_samples_h(batch_size);
+  utils::vec_uniform_<int32_t>(uniform_samples_h, 0, 1);
   utils::vec_uniform_<T>(probs_h, 0, 1);
 
   // normalize the probs_h
@@ -45,18 +44,18 @@ void bench_sampling_with_probability(nvbench::state& state) {
   }
 
   thrust::device_vector<T> probs_d(probs_h);
-  thrust::device_vector<T> uniform_samples_d(uniform_samples_h);
+  thrust::device_vector<int32_t> uniform_samples_d(uniform_samples_h);
   thrust::device_vector<int32_t> output_d(batch_size);
+  //thrust::device_vector<bool> success_d(batch_size);
 
   state.add_global_memory_reads<T>(batch_size * vocab_size, "Read");
   state.add_global_memory_writes<int32_t>(batch_size, "Write");
-
   state.exec(nvbench::exec_tag::timer, [&](nvbench::launch& launch, auto& timer) {
     timer.start();
     cudaError_t status = sampling::SamplingFromProb<T>(
         thrust::raw_pointer_cast(probs_d.data()),
         thrust::raw_pointer_cast(uniform_samples_d.data()),
-        thrust::raw_pointer_cast(output_d.data()), batch_size, vocab_size, deterministic);
+        thrust::raw_pointer_cast(output_d.data()), batch_size, vocab_size, deterministic, 42ULL, 0ULL);
     timer.stop();
     if (status != cudaSuccess) {
       state.skip("CUDA error: " + std::string(cudaGetErrorString(status)));
@@ -89,7 +88,7 @@ void bench_top_p_sampling_with_probability(nvbench::state& state) {
   }
 
   thrust::device_vector<T> probs_d(probs_h);
-  thrust::device_vector<T> uniform_samples_d(uniform_samples_h);
+  thrust::device_vector<int32_t> uniform_samples_d(uniform_samples_h);
   thrust::device_vector<int32_t> output_d(batch_size);
   thrust::device_vector<bool> success_d(batch_size);
 
@@ -100,9 +99,9 @@ void bench_top_p_sampling_with_probability(nvbench::state& state) {
     timer.start();
     cudaError_t status = sampling::TopPSamplingFromProb<T, int32_t>(
         thrust::raw_pointer_cast(probs_d.data()),
-        thrust::raw_pointer_cast(uniform_samples_d.data()),
-        thrust::raw_pointer_cast(output_d.data()), thrust::raw_pointer_cast(success_d.data()),
-        /*top_p_arr=*/nullptr, batch_size, p, vocab_size, max_top_p_rounds, deterministic);
+        thrust::raw_pointer_cast(uniform_samples_d.data()), 
+        thrust::raw_pointer_cast(output_d.data()), 
+        /*top_p_arr=*/nullptr, batch_size, p, vocab_size, deterministic, 42ULL, 0ULL);
     timer.stop();
     if (status != cudaSuccess) {
       state.skip("CUDA error: " + std::string(cudaGetErrorString(status)));
@@ -119,8 +118,8 @@ void bench_top_k_sampling_with_probability(nvbench::state& state) {
   constexpr uint32_t max_top_k_rounds = 32;
 
   std::vector<T> probs_h(batch_size * vocab_size);
-  std::vector<T> uniform_samples_h(max_top_k_rounds * batch_size);
-  utils::vec_uniform_<T>(uniform_samples_h, 0, 1);
+  std::vector<int32_t> uniform_samples_h(max_top_k_rounds * batch_size);
+  utils::vec_uniform_<int32_t>(uniform_samples_h, 0, 1);
   utils::vec_uniform_<T>(probs_h, 0, 1);
 
   // normalize the probs_h
@@ -135,9 +134,9 @@ void bench_top_k_sampling_with_probability(nvbench::state& state) {
   }
 
   thrust::device_vector<T> probs_d(probs_h);
-  thrust::device_vector<T> uniform_samples_d(uniform_samples_h);
+  thrust::device_vector<int32_t> uniform_samples_d(uniform_samples_h);
   thrust::device_vector<int32_t> output_d(batch_size);
-  thrust::device_vector<bool> success_d(batch_size);
+  //thrust::device_vector<bool> success_d(batch_size);
 
   state.add_global_memory_reads<T>(batch_size * vocab_size, "Read");
   state.add_global_memory_writes<int32_t>(batch_size, "Write");
@@ -146,13 +145,15 @@ void bench_top_k_sampling_with_probability(nvbench::state& state) {
     timer.start();
     cudaError_t status = sampling::TopKSamplingFromProb<T, int32_t>(
         thrust::raw_pointer_cast(probs_d.data()),
-        thrust::raw_pointer_cast(uniform_samples_d.data()),
-        thrust::raw_pointer_cast(output_d.data()), thrust::raw_pointer_cast(success_d.data()),
-        /*top_k_arr=*/nullptr, batch_size, k, vocab_size, max_top_k_rounds, deterministic);
-    timer.stop();
-    if (status != cudaSuccess) {
-      state.skip("CUDA error: " + std::string(cudaGetErrorString(status)));
-    }
+    thrust::raw_pointer_cast(uniform_samples_d.data()),
+        thrust::raw_pointer_cast(output_d.data()), 
+    /*top_k_arr=*/nullptr, batch_size, k, vocab_size, deterministic, 42ULL, 0ULL);
+
+  timer.stop();
+  if (status != cudaSuccess) {
+    std::cerr << "CUDA error: " << cudaGetErrorString(status) << std::endl;
+    return;
+  }
   });
 }
 
